@@ -5,77 +5,58 @@ var path = require('path');
 var config = require('../config');
 var utils = require('./utils');
 var webpack = require('webpack');
+var merge = require('webpack-merge');
+var baseWebpackConfig = require('./webpack.base.config');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var ExtractTextPlugin = require("extract-text-webpack-plugin");
+var OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin');
 
-module.exports = {
+var webpackConfig =  merge(baseWebpackConfig, {
+
     devtool: config.build.productionSourceMap ? '#source-map' : false,
 
-    entry: "./src/main.js",
     output: {
         path: config.build.assetsRoot,
         filename: utils.assetsPath('js/[name].[chunkhash].js'),
-        chunkFilename: utils.assetsPath('js/[id].[chunkhash].js'),
-        publicPath: process.env.NODE_ENV === 'production' ? config.build.assetsPublicPath : config.dev.assetsPublicPath
-    },
-
-    module: {
-        rules: [
-            {
-                test: /\.js$/,
-                loader: 'babel-loader',
-                exclude: /node_modules/
-            },
-            {
-                test: /\.css$/,
-                use: ExtractTextPlugin.extract({
-                    fallback: "style-loader",
-                    use: [
-                        {
-                            loader: "css-loader",
-                            options: {
-                                modules: true,
-                                localIdentName: '[path][name]__[local]--[hash:base64:5]'
-                            }
-                        },
-                        {
-                            loader: 'postcss-loader',
-                            // 在这里进行配置，也可以在postcss.config.js中进行配置，详情参考https://github.com/postcss/postcss-loader
-                            options: {
-                                plugins: function () {
-                                    return [
-                                        require('autoprefixer')
-                                    ];
-                                }
-                            }
-                        }
-                    ]
-                })
-            },
-            {
-                test: /\.json$/,
-                loader: 'json'
-            },
-            {
-                test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
-                loader: 'url-loader',
-                query: {
-                    limit: 10000,
-                    name: utils.assetsPath('img/[name].[ext]')
-                }
-            },
-            {
-                test: /\.html$/,
-                loader: 'html-loader'
-            }
-        ]
+        chunkFilename: utils.assetsPath('js/[id].[chunkhash].js')
     },
 
     plugins: [
+        new webpack.DefinePlugin({
+            'process.env': config.build.env
+        }),
+
+        new webpack.optimize.UglifyJsPlugin({
+            compress: {
+                warnings: false
+            },
+            sourceMap: true
+        }),
+
+        new ExtractTextPlugin({
+            filename:utils.assetsPath("css/[name].[contenthash].css")
+        }),
+        // Compress extracted CSS. We are using this plugin so that possible
+        // duplicated CSS from different components can be deduped.
+        new OptimizeCSSPlugin({
+            cssProcessorOptions: {
+                safe: true
+            }
+        }),
+
         new HtmlWebpackPlugin({
             filename: config.build.index,
             template: "./src/index.html",
-            inject: true
+            inject: true,
+            minify: {
+                removeComments: true,
+                collapseWhitespace: true,
+                removeAttributeQuotes: true
+                // more options:
+                // https://github.com/kangax/html-minifier#options-quick-reference
+            },
+            // necessary to consistently work with multiple chunks via CommonsChunkPlugin
+            chunksSortMode: 'dependency'
         }),
         // split vendor js into its own file
         new webpack.optimize.CommonsChunkPlugin({
@@ -97,12 +78,26 @@ module.exports = {
             name: 'manifest',
             chunks: ['vendor']
         }),
-        new webpack.optimize.OccurrenceOrderPlugin(true),
-        new webpack.optimize.UglifyJsPlugin({
-            compress: {
-                warnings: false
-            }
-        }),
-        new ExtractTextPlugin(utils.assetsPath("css/[name]-[contenthash].css"))
+        new webpack.optimize.OccurrenceOrderPlugin(true)
     ]
-};
+});
+
+if (config.build.productionGzip) {
+    var CompressionWebpackPlugin = require('compression-webpack-plugin');
+
+    webpackConfig.plugins.push(
+        new CompressionWebpackPlugin({
+            asset: '[path].gz[query]',
+            algorithm: 'gzip',
+            test: new RegExp(
+                '\\.(' +
+                config.build.productionGzipExtensions.join('|') +
+                ')$'
+            ),
+            threshold: 10240,
+            minRatio: 0.8
+        })
+    )
+}
+
+module.exports = webpackConfig;
