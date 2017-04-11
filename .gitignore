@@ -3,6 +3,6 @@
 ### Example user template
 
 # IntelliJ project files
-.idea
-/node_modules/
+.idea/
+node_modules/
 public/
